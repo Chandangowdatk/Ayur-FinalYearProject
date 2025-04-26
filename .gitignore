@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+.venv/
+bin/
+include/
+pyvenv.cfg
+
+# IDE files
+.idea/
+.vscode/
+
+# macOS
+.DS_Store
+
+# Embedded git repositories
+AyurGPT/ayurgpt-frontend/
+
+# Database 
+volumes/
+
+# Logs
+*.log
+
+# Large files
+*.dylib
+MINILM-embed-for-Scientific_Basis_for_Ayurvedic_Therapies.txt
+Scientific_Basis_for_Ayurvedic_Therapies.txt
+.git/objects/pack/pack-21615cacf9916ad706ce05f6bacf83288cc0f1e8.pack 
