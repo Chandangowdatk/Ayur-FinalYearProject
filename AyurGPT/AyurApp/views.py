@@ -4,12 +4,20 @@ import json
 import sqlite3
 # import numpy as np
 from django.http import JsonResponse
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth import login
+from knox.models import AuthToken
 from groq import Groq
 from sentence_transformers import SentenceTransformer
 from pymilvus import connections, Collection
 from dotenv import load_dotenv
 from pathlib import Path
+
+from .serializers import UserSerializer, RegisterSerializer, LoginSerializer, ChatHistorySerializer
+from .models import ChatHistory
 
 # 📌 Constants
 load_dotenv()
@@ -39,6 +47,55 @@ milvus_collection = Collection(name=MILVUS_COLLECTION)
 # ✅ Connect to SQLite
 conn = sqlite3.connect(SQLITE_DB_PATH)
 cursor = conn.cursor()
+
+# User Registration API
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def register_api(request):
+    serializer = RegisterSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        _, token = AuthToken.objects.create(user)
+        
+        return Response({
+            "user": UserSerializer(user, context={"request": request}).data,
+            "token": token
+        })
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# User Login API
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login_api(request):
+    serializer = LoginSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.validated_data
+        login(request, user)
+        _, token = AuthToken.objects.create(user)
+        
+        return Response({
+            "user": UserSerializer(user, context={"request": request}).data,
+            "token": token
+        })
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Get User API
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_api(request):
+    user = request.user
+    return Response({
+        "user": UserSerializer(user, context={"request": request}).data,
+    })
+
+# Get User Chat History
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_chat_history(request):
+    user = request.user
+    chats = user.chats.all()
+    serializer = ChatHistorySerializer(chats, many=True)
+    return Response(serializer.data)
 
 def query_similar_sanskrit(english_query, top_k=40):
     """Query Milvus for similar Sanskrit sentences using an English query."""
@@ -110,6 +167,7 @@ def generate_response(question, context_sentences):
     return completion.choices[0].message.content.strip()
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def chat(request):
     """API endpoint to handle user queries."""
     try:
@@ -126,6 +184,14 @@ def chat(request):
             response = generate_response(question, retrieved_sentences)
         else:
             response = "I don't have enough information to answer this question."
+        
+        # Save the chat history for the user
+        user = request.user
+        ChatHistory.objects.create(
+            user=user,
+            question=question,
+            answer=response
+        )
         
         print(f"Number of retrieved sentences: {len(retrieved_sentences)}")
         print(f"First few retrieved sentences: {retrieved_sentences[:2]}")

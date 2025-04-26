@@ -6,6 +6,7 @@ charset-normalizer==3.4.1
 distro==1.9.0
 Django==5.2
 django-cors-headers==4.7.0
+django-rest-knox==4.2.0
 djangorestframework==3.16.0
 filelock==3.18.0
 fsspec==2025.3.2
