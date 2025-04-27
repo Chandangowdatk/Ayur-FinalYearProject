@@ -100,6 +100,18 @@ def get_chat_history(request):
     serializer = ChatHistorySerializer(chats, many=True)
     return Response(serializer.data)
 
+# Delete a Chat History Item
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_chat_history(request, chat_id):
+    user = request.user
+    try:
+        chat = ChatHistory.objects.get(id=chat_id, user=user)
+        chat.delete()
+        return Response({"message": "Chat history deleted successfully"}, status=204)
+    except ChatHistory.DoesNotExist:
+        return Response({"error": "Chat history not found or you don't have permission to delete it"}, status=404)
+
 def query_similar_sanskrit(english_query, top_k=40):
     """Query Milvus for similar Sanskrit sentences using an English query."""
     
@@ -219,6 +231,9 @@ def chat(request):
         if not question:
             return JsonResponse({"error": "No question provided"}, status=400)
 
+        # Set environment variable to silence the tokenizer warnings
+        os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+        
         retrieved_sentences = query_similar_sanskrit(question, top_k=40)
         
         if retrieved_sentences:
@@ -241,6 +256,7 @@ def chat(request):
         result = {"question": question, "answer": response}
         
         # Generate audio if text-to-speech is enabled
+        # Only include audio in response if explicitly requested
         if enable_tts:
             try:
                 # Create a temporary file to store the audio

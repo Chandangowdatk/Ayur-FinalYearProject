@@ -1,10 +1,21 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
-const SpeakerButton = ({ text, className }) => {
+const SpeakerButton = ({ text, className, audio, contentType }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const audioRef = useRef(null);
+  const audioSourceRef = useRef(null);
+  
+  // Clean up audio when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
   
   const handleSpeech = async () => {
     // If already playing, stop audio
@@ -21,7 +32,13 @@ const SpeakerButton = ({ text, className }) => {
     try {
       setIsLoading(true);
       
-      // Get token from localStorage
+      // If audio data is already provided (from chat response), use it directly
+      if (audio && contentType) {
+        playAudioFromBase64(audio);
+        return;
+      }
+      
+      // Otherwise fetch audio from API
       const token = localStorage.getItem('token');
       
       if (!token) {
@@ -36,10 +53,23 @@ const SpeakerButton = ({ text, className }) => {
       
       // Get the base64-encoded audio
       const audioData = response.data.audio;
+      playAudioFromBase64(audioData);
       
+    } catch (err) {
+      console.error("Error playing text-to-speech:", err);
+      alert("Could not play audio. Please try again.");
+      setIsLoading(false);
+    }
+  };
+  
+  const playAudioFromBase64 = (base64Audio) => {
+    try {
       // Create audio source from base64 data
-      const audio = new Audio(`data:audio/mp3;base64,${audioData}`);
+      const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
       audioRef.current = audio;
+      
+      // Store the audio source to prevent garbage collection
+      audioSourceRef.current = base64Audio;
       
       // Play the audio
       audio.play();
@@ -49,10 +79,8 @@ const SpeakerButton = ({ text, className }) => {
       audio.onended = () => {
         setIsPlaying(false);
       };
-      
     } catch (err) {
-      console.error("Error playing text-to-speech:", err);
-      alert("Could not play audio. Please try again.");
+      console.error("Error playing audio:", err);
     } finally {
       setIsLoading(false);
     }
@@ -84,4 +112,4 @@ const SpeakerButton = ({ text, className }) => {
   );
 };
 
-export default SpeakerButton; 
+export default React.memo(SpeakerButton); 

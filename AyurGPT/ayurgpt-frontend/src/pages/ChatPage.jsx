@@ -106,6 +106,14 @@ const ChatPage = () => {
         throw new Error("Authentication required. Please login again.");
       }
       
+      // Add typing indicator message immediately
+      const typingIndicatorId = Date.now();
+      setMessages(prev => [...prev, {
+        id: typingIndicatorId,
+        isTypingIndicator: true,
+        sender: "bot"
+      }]);
+      
       // Make API request with enable_tts flag
       const response = await axios.post('/api/chat/', 
         { 
@@ -117,22 +125,27 @@ const ChatPage = () => {
       
       console.log("Chat response:", response.data);
       
-      // Add bot response to the chat
-      const botMessage = {
-        text: response.data.answer || "I couldn't generate a response at this time.",
-        sender: "bot",
-        timestamp: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        // Store audio if available from the response
-        audio: response.data.audio,
-        contentType: response.data.content_type
-      };
+      // Remove typing indicator and add the actual response
+      setMessages(prev => {
+        const newMessages = prev.filter(msg => !msg.isTypingIndicator);
+        return [...newMessages, {
+          text: response.data.answer || "I couldn't generate a response at this time.",
+          sender: "bot",
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          // Store audio if available from the response
+          audio: response.data.audio,
+          contentType: response.data.content_type
+        }];
+      });
       
-      setMessages(prev => [...prev, botMessage]);
     } catch (err) {
       console.error("Error sending message:", err);
+      
+      // Remove typing indicator
+      setMessages(prev => prev.filter(msg => !msg.isTypingIndicator));
       
       // Handle authentication errors
       if (err.response?.status === 401 || err.response?.status === 403 || 
@@ -426,44 +439,58 @@ const ChatPage = () => {
               </div>
             ) : (
               <>
-                {messages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`message ${message.sender} ${message.isError ? "error" : ""}`}
-                  >
-                    {message.sender === "bot" && (
-                      <div className="avatar">
-                        <svg
-                          className="small-leaf"
-                          viewBox="0 0 100 100"
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="24"
-                          height="24"
-                        >
-                          <path
-                            d="M50,10 C70,10 90,30 90,50 C90,70 70,90 50,90 C30,90 10,70 10,50 C10,30 30,10 50,10 Z"
-                            fill={message.isError ? "#f44336" : "#4CAF50"}
-                          />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="message-content">
-                      <div
-                        className="message-text"
-                        dangerouslySetInnerHTML={{
-                          __html: formatTextWithBold(message.text),
-                        }}
-                      ></div>
-                      <div className="message-time">
-                        {message.timestamp}
-                        {message.sender === "bot" && (
-                          <SpeakerButton text={message.text} className="message-speaker" />
-                        )}
+                {messages.map((message, index) => {
+                  // Skip rendering typing indicators - they're handled separately
+                  if (message.isTypingIndicator) {
+                    return null;
+                  }
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`message ${message.sender} ${message.isError ? "error" : ""}`}
+                    >
+                      {message.sender === "bot" && (
+                        <div className="avatar">
+                          <svg
+                            className="small-leaf"
+                            viewBox="0 0 100 100"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                          >
+                            <path
+                              d="M50,10 C70,10 90,30 90,50 C90,70 70,90 50,90 C30,90 10,70 10,50 C10,30 30,10 50,10 Z"
+                              fill={message.isError ? "#f44336" : "#4CAF50"}
+                            />
+                          </svg>
+                        </div>
+                      )}
+                      <div className="message-content">
+                        <div
+                          className="message-text"
+                          dangerouslySetInnerHTML={{
+                            __html: formatTextWithBold(message.text),
+                          }}
+                        ></div>
+                        <div className="message-time">
+                          {message.timestamp}
+                          {message.sender === "bot" && !message.isError && (
+                            <SpeakerButton 
+                              text={message.text} 
+                              className="message-speaker" 
+                              audio={message.audio}
+                              contentType={message.contentType}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {loading && (
+                  );
+                })}
+                
+                {/* Separate typing indicator component */}
+                {messages.some(msg => msg.isTypingIndicator) && (
                   <div className="message bot typing">
                     <div className="avatar">
                       <svg
@@ -486,6 +513,7 @@ const ChatPage = () => {
                     </div>
                   </div>
                 )}
+                
                 <div ref={messagesEndRef} />
               </>
             )}
