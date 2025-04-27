@@ -68,6 +68,13 @@ const ChatPage = () => {
     return formattedText.replace(/\n/g, "<br />");
   };
 
+  // Handle starting a new chat
+  const handleNewChat = () => {
+    setMessages([]);
+    setInputMessage('');
+    setError('');
+  };
+
   // Handle sending a message
   const handleSendMessage = async (e) => {
     e.preventDefault(); // Prevent form submission from reloading the page
@@ -243,6 +250,26 @@ const ChatPage = () => {
                 Logout
               </button>
             </div>
+            <button 
+              className="sidebar-new-chat-button" 
+              onClick={handleNewChat}
+              title="Start a new chat"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="20" 
+                height="20" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              >
+                <path d="M12 5v14M5 12h14"></path>
+              </svg>
+              <span>New Chat</span>
+            </button>
             <ChatHistory onSelectChat={(chat) => {
               // Handle selecting chat history
               console.log("Selected chat:", chat);

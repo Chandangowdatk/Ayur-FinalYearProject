@@ -37,7 +37,7 @@ pyvenv.cfg
 .DS_Store
 
 # Embedded git repositories
-AyurGPT/ayurgpt-frontend/
+# AyurGPT/ayurgpt-frontend/
 
 # Database 
 volumes/
@@ -49,4 +49,11 @@ volumes/
 *.dylib
 MINILM-embed-for-Scientific_Basis_for_Ayurvedic_Therapies.txt
 Scientific_Basis_for_Ayurvedic_Therapies.txt
-.git/objects/pack/pack-21615cacf9916ad706ce05f6bacf83288cc0f1e8.pack 
+.git/objects/pack/pack-21615cacf9916ad706ce05f6bacf83288cc0f1e8.pack
+
+# Debug and test files
+AyurGPT/check_milvus_ids.py
+AyurGPT/check_milvus.py
+AyurGPT/debug_rag.py
+AyurGPT/rebuild_collections.py
+AyurGPT/test_rag.py 
