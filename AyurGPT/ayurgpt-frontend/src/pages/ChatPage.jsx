@@ -15,6 +15,7 @@ const ChatPage = () => {
   const [error, setError] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
+  const [processingStatus, setProcessingStatus] = useState('');
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -95,6 +96,7 @@ const ChatPage = () => {
     setInputMessage('');
     setLoading(true);
     setError('');
+    setProcessingStatus('Initiating request...');
     
     try {
       console.log("Sending chat request:", inputMessage);
@@ -111,7 +113,8 @@ const ChatPage = () => {
       setMessages(prev => [...prev, {
         id: typingIndicatorId,
         isTypingIndicator: true,
-        sender: "bot"
+        sender: "bot",
+        processingUpdates: []
       }]);
       
       // Make API request with enable_tts flag
@@ -120,29 +123,51 @@ const ChatPage = () => {
           question: inputMessage,
           enable_tts: true // Enable text-to-speech automatically
         },
-        { headers: { Authorization: `Token ${token}` }}
+        { headers: { Authorization: `Token ${token}` }},
+        { timeout: 60000 } // 60-second timeout
       );
       
       console.log("Chat response:", response.data);
       
-      // Remove typing indicator and add the actual response
-      setMessages(prev => {
-        const newMessages = prev.filter(msg => !msg.isTypingIndicator);
-        return [...newMessages, {
-          text: response.data.answer || "I couldn't generate a response at this time.",
-          sender: "bot",
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          // Store audio if available from the response
-          audio: response.data.audio,
-          contentType: response.data.content_type
-        }];
-      });
+      // If the backend provided processing steps, show those in the UI
+      // Otherwise use our simulated steps with timeouts
+      if (response.data.processing_steps && Array.isArray(response.data.processing_steps)) {
+        // Show each processing step with a delay
+        response.data.processing_steps.forEach((step, index) => {
+          updateProcessingStatus(step, index * 1000);
+        });
+      } else {
+        // Use simulated steps if backend didn't provide any
+        updateProcessingStatus('Retrieving relevant Ayurvedic knowledge...', 500);
+        updateProcessingStatus('Analyzing Sanskrit literature...', 2000);
+        updateProcessingStatus('Preparing Ayurvedic insights...', 3500);
+        updateProcessingStatus('Generating personalized response...', 5000);
+      }
+      
+      // Wait a bit to show the final steps
+      setTimeout(() => {
+        setProcessingStatus('Response received. Rendering content...');
+        
+        // Remove typing indicator and add the actual response
+        setMessages(prev => {
+          const newMessages = prev.filter(msg => !msg.isTypingIndicator);
+          return [...newMessages, {
+            text: response.data.answer || "I couldn't generate a response at this time.",
+            sender: "bot",
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            // Store audio if available from the response
+            audio: response.data.audio,
+            contentType: response.data.content_type
+          }];
+        });
+      }, response.data.processing_steps ? response.data.processing_steps.length * 1000 + 1000 : 5500);
       
     } catch (err) {
       console.error("Error sending message:", err);
+      setProcessingStatus('Error encountered during processing.');
       
       // Remove typing indicator
       setMessages(prev => prev.filter(msg => !msg.isTypingIndicator));
@@ -186,7 +211,29 @@ const ChatPage = () => {
       setError(err.response?.data?.error || "Failed to get a response. Please try again.");
     } finally {
       setLoading(false);
+      setTimeout(() => setProcessingStatus(''), 1500); // Clear processing status after a delay
     }
+  };
+
+  // Function to update processing status with delay
+  const updateProcessingStatus = (status, delay) => {
+    setTimeout(() => {
+      setProcessingStatus(status);
+      
+      // Also update the typing indicator with the processing status
+      setMessages(prevMessages => {
+        return prevMessages.map(msg => {
+          if (msg.isTypingIndicator) {
+            return {
+              ...msg,
+              processingUpdates: [...(msg.processingUpdates || []), status]
+            };
+          }
+          return msg;
+        });
+      });
+      
+    }, delay);
   };
 
   // Handle clicking on a suggestion chip
@@ -489,7 +536,7 @@ const ChatPage = () => {
                   );
                 })}
                 
-                {/* Separate typing indicator component */}
+                {/* Separate typing indicator component with processing updates */}
                 {messages.some(msg => msg.isTypingIndicator) && (
                   <div className="message bot typing">
                     <div className="avatar">
@@ -506,10 +553,26 @@ const ChatPage = () => {
                         />
                       </svg>
                     </div>
-                    <div className="typing-indicator">
-                      <span></span>
-                      <span></span>
-                      <span></span>
+                    <div className="message-content">
+                      <div className="typing-container">
+                        <div className="typing-indicator">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                        {processingStatus && (
+                          <div className="processing-status">{processingStatus}</div>
+                        )}
+                      </div>
+                      {messages.find(msg => msg.isTypingIndicator)?.processingUpdates?.length > 0 && (
+                        <div className="processing-updates">
+                          {messages.find(msg => msg.isTypingIndicator).processingUpdates.map((update, idx) => (
+                            <div key={idx} className="processing-update-item">
+                              <span className="checkmark">✓</span> {update}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

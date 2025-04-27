@@ -234,6 +234,15 @@ def chat(request):
         # Set environment variable to silence the tokenizer warnings
         os.environ['TOKENIZERS_PARALLELISM'] = 'false'
         
+        # Add processing steps for the frontend to display
+        processing_steps = [
+            "Loading vectorstore and embedding model", 
+            "Vectorizing your query",
+            "Searching through Ayurvedic knowledge base", 
+            "Retrieving relevant Sanskrit references",
+            "Generating Ayurvedic response"
+        ]
+        
         retrieved_sentences = query_similar_sanskrit(question, top_k=40)
         
         if retrieved_sentences:
@@ -253,7 +262,11 @@ def chat(request):
         print(f"First few retrieved sentences: {retrieved_sentences[:2]}")
         print(f"Response: {response[:100]}...")
 
-        result = {"question": question, "answer": response}
+        result = {
+            "question": question, 
+            "answer": response,
+            "processing_steps": processing_steps
+        }
         
         # Generate audio if text-to-speech is enabled
         # Only include audio in response if explicitly requested
