@@ -7,4 +7,5 @@ urlpatterns = [
     path('api/user/', views.get_user_api, name='user'),
     path('api/chat-history/', views.get_chat_history, name='chat_history'),
     path('api/chat/', views.chat, name='chat'),
+    path('api/text-to-speech/', views.text_to_speech, name='text_to_speech'),
 ]

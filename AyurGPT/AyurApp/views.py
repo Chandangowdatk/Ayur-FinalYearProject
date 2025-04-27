@@ -3,7 +3,7 @@ import os
 import json
 import sqlite3
 # import numpy as np
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -15,6 +15,9 @@ from sentence_transformers import SentenceTransformer
 from pymilvus import connections, Collection
 from dotenv import load_dotenv
 from pathlib import Path
+from gtts import gTTS
+import base64
+import tempfile
 
 from .serializers import UserSerializer, RegisterSerializer, LoginSerializer, ChatHistorySerializer
 from .models import ChatHistory
@@ -168,11 +171,49 @@ def generate_response(question, context_sentences):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+def text_to_speech(request):
+    """API endpoint to convert text to speech audio."""
+    try:
+        data = json.loads(request.body)
+        text = data.get("text", "")
+        language = data.get("language", "en")
+        
+        if not text:
+            return JsonResponse({"error": "No text provided"}, status=400)
+        
+        # Create a temporary file to store the audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+            # Generate speech from text
+            tts = gTTS(text=text, lang=language, slow=False)
+            tts.save(temp_audio.name)
+            
+            # Read the audio file as binary data
+            with open(temp_audio.name, 'rb') as audio_file:
+                audio_data = audio_file.read()
+            
+            # Encode the binary data as base64
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            # Delete the temporary file
+            os.unlink(temp_audio.name)
+        
+        return JsonResponse({
+            "audio": audio_base64,
+            "content_type": "audio/mp3"
+        })
+    
+    except Exception as e:
+        print(f"Error in text_to_speech endpoint: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def chat(request):
     """API endpoint to handle user queries."""
     try:
         data = json.loads(request.body)
         question = data.get("question", "")
+        enable_tts = data.get("enable_tts", False)  # New parameter to enable text-to-speech
         print(f"Received question: {question}")
         
         if not question:
@@ -197,7 +238,35 @@ def chat(request):
         print(f"First few retrieved sentences: {retrieved_sentences[:2]}")
         print(f"Response: {response[:100]}...")
 
-        return JsonResponse({"question": question, "answer": response})
+        result = {"question": question, "answer": response}
+        
+        # Generate audio if text-to-speech is enabled
+        if enable_tts:
+            try:
+                # Create a temporary file to store the audio
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+                    # Generate speech from text
+                    tts = gTTS(text=response, lang="en", slow=False)
+                    tts.save(temp_audio.name)
+                    
+                    # Read the audio file as binary data
+                    with open(temp_audio.name, 'rb') as audio_file:
+                        audio_data = audio_file.read()
+                    
+                    # Encode the binary data as base64
+                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                    
+                    # Delete the temporary file
+                    os.unlink(temp_audio.name)
+                
+                result["audio"] = audio_base64
+                result["content_type"] = "audio/mp3"
+                
+            except Exception as e:
+                print(f"Error generating speech: {str(e)}")
+                # Continue with response even if speech generation fails
+
+        return JsonResponse(result)
 
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")
