@@ -154,32 +154,48 @@ def query_similar_sanskrit(english_query, top_k=40):
 
 def generate_response(question, context_sentences):
     """Use Groq's LLaMA API to generate an answer based on the retrieved Sanskrit sentences."""
-    context_text = "\n".join(context_sentences)
-    prompt = (
-        "You are an expert Ayurvedic doctor. Answer the question using the provided context.\n\n"
-        "Guidelines:\n"
-        "- Extract as much relevant information as possible from the context.\n"
-        "- Only if you absolutely cannot find ANY relevant information, respond with 'I don't have enough information about this topic.'\n"
-        "- Otherwise, do your best to answer with the available information.\n"
-        "- Replace common medical terms with Ayurvedic terminology if appropriate.\n"
-        "- Ensure the response aligns with Ayurveda's holistic approach.\n"
-        "- If enough information is available, organize your answer into: Overview, Home Remedies, Dietary Recommendations, and Scientific Studies.\n"
-        "- Be thorough and detailed in your response.\n\n"
-        f"Context:\n{context_text}\n\nQuestion: {question}\nAnswer:"
-    )
+    try:
+        context_text = "\n".join(context_sentences)
+        prompt = (
+            "You are an expert Ayurvedic doctor. Answer the question using the provided context.\n\n"
+            "Guidelines:\n"
+            "- Extract as much relevant information as possible from the context.\n"
+            "- Only if you absolutely cannot find ANY relevant information, respond with 'I don't have enough information about this topic.'\n"
+            "- Otherwise, do your best to answer with the available information.\n"
+            "- Replace common medical terms with Ayurvedic terminology if appropriate.\n"
+            "- Ensure the response aligns with Ayurveda's holistic approach.\n"
+            "- If enough information is available, organize your answer into: Overview, Home Remedies, Dietary Recommendations, and Scientific Studies.\n"
+            "- Be thorough and detailed in your response.\n\n"
+            f"Context:\n{context_text}\n\nQuestion: {question}\nAnswer:"
+        )
 
-    print(f"Sending prompt of length {len(prompt)} to Groq")
-    
-    completion = client.chat.completions.create(
-        model="llama3-70b-8192",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        max_tokens=1024,
-        top_p=1,
-        stream=False,
-    )
-
-    return completion.choices[0].message.content.strip()
+        print(f"Sending prompt of length {len(prompt)} to Groq")
+        
+        try:
+            completion = client.chat.completions.create(
+                model="llama3-70b-8192",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2,
+                max_tokens=1024,
+                top_p=1,
+                stream=False,
+            )
+            
+            if not completion or not completion.choices:
+                print("Error: No response received from Groq")
+                return "I apologize, but I'm having trouble generating a response at the moment. Please try again."
+            
+            response = completion.choices[0].message.content.strip()
+            print(f"Received response from Groq: {response[:100]}...")
+            return response
+            
+        except Exception as groq_error:
+            print(f"Error in Groq API call: {str(groq_error)}")
+            return "I apologize, but I'm having trouble connecting to the knowledge base. Please try again in a few moments."
+            
+    except Exception as e:
+        print(f"Error in generate_response: {str(e)}")
+        return "I apologize, but I'm having trouble processing your request. Please try again."
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -225,7 +241,6 @@ def chat(request):
     try:
         data = json.loads(request.body)
         question = data.get("question", "")
-        enable_tts = data.get("enable_tts", False)  # New parameter to enable text-to-speech
         print(f"Received question: {question}")
         
         if not question:
@@ -252,51 +267,63 @@ def chat(request):
         
         # Save the chat history for the user
         user = request.user
-        ChatHistory.objects.create(
+        chat_history = ChatHistory.objects.create(
             user=user,
             question=question,
             answer=response
         )
         
-        print(f"Number of retrieved sentences: {len(retrieved_sentences)}")
-        print(f"First few retrieved sentences: {retrieved_sentences[:2]}")
-        print(f"Response: {response[:100]}...")
-
+        # Return minimal response first
         result = {
             "question": question, 
             "answer": response,
-            "processing_steps": processing_steps
+            "processing_steps": processing_steps,
+            "chat_id": chat_history.id  # Include chat_id for audio generation
         }
         
-        # Generate audio if text-to-speech is enabled
-        # Only include audio in response if explicitly requested
-        if enable_tts:
-            try:
-                # Create a temporary file to store the audio
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
-                    # Generate speech from text
-                    tts = gTTS(text=response, lang="en", slow=False)
-                    tts.save(temp_audio.name)
-                    
-                    # Read the audio file as binary data
-                    with open(temp_audio.name, 'rb') as audio_file:
-                        audio_data = audio_file.read()
-                    
-                    # Encode the binary data as base64
-                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-                    
-                    # Delete the temporary file
-                    os.unlink(temp_audio.name)
-                
-                result["audio"] = audio_base64
-                result["content_type"] = "audio/mp3"
-                
-            except Exception as e:
-                print(f"Error generating speech: {str(e)}")
-                # Continue with response even if speech generation fails
-
         return JsonResponse(result)
 
     except Exception as e:
         print(f"Error in chat endpoint: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def generate_audio(request):
+    """API endpoint to generate audio for a chat response."""
+    try:
+        data = json.loads(request.body)
+        chat_id = data.get("chat_id")
+        
+        if not chat_id:
+            return JsonResponse({"error": "No chat_id provided"}, status=400)
+            
+        try:
+            chat_history = ChatHistory.objects.get(id=chat_id, user=request.user)
+        except ChatHistory.DoesNotExist:
+            return JsonResponse({"error": "Chat not found"}, status=404)
+            
+        # Create a temporary file to store the audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_audio:
+            # Generate speech from text
+            tts = gTTS(text=chat_history.answer, lang="en", slow=False)
+            tts.save(temp_audio.name)
+            
+            # Read the audio file as binary data
+            with open(temp_audio.name, 'rb') as audio_file:
+                audio_data = audio_file.read()
+            
+            # Encode the binary data as base64
+            audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            # Delete the temporary file
+            os.unlink(temp_audio.name)
+        
+        return JsonResponse({
+            "audio": audio_base64,
+            "content_type": "audio/mp3"
+        })
+    
+    except Exception as e:
+        print(f"Error in generate_audio endpoint: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
