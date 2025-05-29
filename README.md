@@ -16,7 +16,6 @@ AyurRAG is an advanced Retrieval-Augmented Generation (RAG) system designed to p
 - **Frontend**: HTML5, CSS3, JavaScript
 - **Database**: PostgreSQL, Milvus (Vector Database)
 - **AI/ML**: Sentence Transformers, RAG Architecture
-- **Cloud Services**: AWS (EC2, S3, RDS, CloudFront)
 - **DevOps**: Docker, GitHub Actions
 
 ## Project Structure
