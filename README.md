@@ -20,26 +20,48 @@ AyurRAG is an advanced Retrieval-Augmented Generation (RAG) system designed to p
 
 ## Project Structure
 ```
-ayurrag/
-├── manage.py
+Contents of base folder:
+├── AyurGPT
+├── .DS_Store
+├── .gitignore
+├── connection.py
+├── embeddings.py
+├── embeddings_Scientific_Basis_for_Ayurvedic_Therapies.txt
+├── insertion.py
+├── L2_minilm_sentences.db
+├── L2_minilm_sentences_3.db
+├── new_query.py
+├── query.py
+├── README.md
 ├── requirements.txt
-├── ayurrag/
-│   ├── __init__.py
-│   ├── settings.py
-│   ├── urls.py
-│   └── wsgi.py
-├── chat/
-│   ├── __init__.py
-│   ├── models.py
-│   ├── views.py
-│   ├── urls.py
-│   └── tests.py
-├── static/
-│   └── css/
-│       └── styles.css
-└── templates/
-    └── chat/
-        └── index.html
+
+Contents of AyurApp:
+├── migrations/
+├── __pycache__/
+├── admin.py
+├── apps.py
+├── models.py
+├── serializers.py
+├── tests.py
+├── urls.py
+├── views.py
+├── __init__.py
+
+Contents of AyurGPT:
+├── asgi.py
+├── settings.py
+├── urls.py
+├── wsgi.py
+├── __init__.py
+
+Contents of ayurgpt-frontend:
+├── node_modules/
+├── public/
+├── src/ (make chanegs to your frontend here)
+├── .gitignore
+├── package-lock.json
+├── package.json
+├── README.md
 ```
 
 ## Setup and Installation
