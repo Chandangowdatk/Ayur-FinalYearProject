@@ -102,7 +102,7 @@ The API documentation is available at `/api/docs/` when running the server local
 
 ## Contributors
 - [Chandan Gowda T K](https://github.com/Chandangowdatk)
-- Dhanush H
+- [Dhanush H](https://github.com/dealga)
 - Srivatsa G
 - Shrisha G Shetty
 
