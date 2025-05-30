@@ -21,7 +21,7 @@ AyurRAG is an advanced Retrieval-Augmented Generation (RAG) system designed to p
 ## Project Structure
 ```
 Contents of base folder:
-├── AyurGPT
+├── AyurGPT/
 ├── .DS_Store
 ├── .gitignore
 ├── connection.py
